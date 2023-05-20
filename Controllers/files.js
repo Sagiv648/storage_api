@@ -61,18 +61,35 @@ filesRouter.post('/upload/',bucketKeyAuth ,upload.single('file') , async(req,res
             
             
         }
-        console.log(offset);
-        console.log(req.file.size);
-        console.log(size);
-        console.log(offset + req.file.size);
+        // console.log(offset);
+        // console.log(req.file.size);
+        // console.log(size);
+        // console.log(offset + req.file.size);
         if((parseInt(offset) + req.file.size) >= parseInt(size))
         {
             //set file mod to read only
             fs.chmodSync(`${fullStoragePath}/${name}`, fs.constants.S_IRUSR | fs.constants.S_IWUSR)
 
-            const newFile = await files.create({name: name,path: bucket_path, bucket_id: bucket_id, size: size})
+            const exists = await files.findOne({where: {name: name, path: bucket_path, bucket_id: bucket_id}})
             const buck = await bucket.findByPk(bucket_id)
-            await buck.update({files_count: buck.files_count+1, size: buck.size + newFile.size})
+            
+            if(!exists)
+            {
+                console.log("it doesn't exist");
+                const newFile = await files.create({name: name,path: bucket_path, bucket_id: bucket_id, size: size})
+                await buck.update({files_count: buck.files_count+1})
+            }
+            else
+            {
+                console.log("it exists");
+                const oldSize = exists.size;
+                await exists.update({name: name, path: bucket_path, size: size})
+                
+                
+            }
+            
+            
+            
             return res.status(201).json({download_url: `http://localhost:5000/api/files/download/${buck.key}?path=${bucket_path}/${name}`})
         }
 
@@ -83,6 +100,7 @@ filesRouter.post('/upload/',bucketKeyAuth ,upload.single('file') , async(req,res
 
     } catch (error) {
         console.log(error.message);
+        throw error
         return res.status(500).json({error: "server error"})
     }
     
