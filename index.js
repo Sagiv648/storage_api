@@ -9,11 +9,12 @@ import user from "./Models/user.js";
 import corsConfig from "./config/corsConfig.js";
 import userRouter from "./Controllers/user.js";
 import bucketRouter from "./Controllers/bucket.js";
-import { auth } from "./Controllers/auth.js";
+import { auth, bucketKeyAuth } from "./Controllers/auth.js";
 import filesRouter from "./Controllers/files.js";
 app.use(json())
 app.use(urlencoded({extended: false}))
 app.use(cors())
+
 
 app.get('/',cors(corsConfig), async (req,res) => {
     
@@ -30,27 +31,8 @@ app.get('/x', (req,res) => {
 
 app.use('/api/user', userRouter )
 app.use('/api/bucket',auth,bucketRouter)
-app.use('/api/files', filesRouter)
-//Upload example
-// app.post('/upload',upload.single("file") ,async(req,res) => {
-    
-//     const {buffer} = req.file
-//     const {start,len,size,name} = req.body
-//     console.log(`${start}/${size}`);
-//     try {
-//         fs.appendFile(`${__dirname}/../${name}`, buffer, {encoding: 'utf-8'}, (err) => {
-//             if(err){
-//                throw err;
-//             }
-//             console.log("written");
-                
-            
-//         })
-//     } catch (error) {
-//         throw error;
-//     }
-//     return res.status(200).json({state: "written", progress: `${start}/${size}`})
-// })
+app.use('/api/files' ,filesRouter)
+
 
 //Download url
 // app.get('/download/:name', (req,res) => {

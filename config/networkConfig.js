@@ -8,7 +8,7 @@ const server = http.createServer(app)
 
 db.sync()
 .then(() => {
-    server.listen(80,() => {
+    server.listen(process.env.PORT,() => {
         console.log("listening...");
     })
 })

@@ -1,7 +1,11 @@
 import jwt from 'jsonwebtoken'
 import user from '../Models/user.js'
+import dotenv from 'dotenv'
+import bucket from '../Models/bucket.js';
+dotenv.config();
 
 export const auth = async (req,res, next) => {
+
     if(!req.headers.authorization || !req.headers.authorization.startsWith("Bearer "))
         return res.status(401).json({error: "unauthorized"})
     const authorization = req.headers.authorization.split(' ')
@@ -29,20 +33,28 @@ export const auth = async (req,res, next) => {
     }
 }
 
-export const emailTokenAuth = async (req,res,next) => {
+export const bucketKeyAuth = async (req,res,next) => {
+    const key = req.headers.bucket_auth;
     
-    const {payload} = req.params;
-    console.log(payload);
-    if(!payload)
-        return res.status(401).json({error: "invalid link"})
+    if(!key)
+        return res.status(401).json({error: "invalid bucket key"})
+    
     try {
-        jwt.verify(payload, process.env.EMAIL_CONFIRMATION_SECRET, (err, payload) => {
+
+        jwt.verify(key, process.env.JWT_BUCKET_KEY_SECRET, async (err,payload) => {
             if(err)
-                return res.status(401).json({error: "invalid link"})
-            req.data = payload;
+                return res.status(401).json({error: "invalid key"})
+                
+            const exists = await bucket.findByPk(payload.bucket_id)
+            if(!exists)
+                return res.status(401).json({error: "invalid key"})
+            req.data = {...req.data,bucket_id: payload.bucket_id}
             next();
+            
         })
     } catch (error) {
-        
+         return res.status(500).json({error: "server error"})
     }
+    
 }
+

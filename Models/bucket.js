@@ -13,6 +13,7 @@ export default db.define("buckets", {
     },
     key: {
         type: sequelize.DataTypes.STRING,
+        defaultValue: 0,
         allowNull: false
     },
     size: {

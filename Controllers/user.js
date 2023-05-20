@@ -11,6 +11,8 @@ dotenv.config();
 userRouter.post('/signup', async (req,res) => {
 
     const {email,password} = req.body;
+    if(!email || !password)
+        return res.status(400).json({error: "invalid fields"})
 
     try {
         const exists = await user.findOne({where: {email: email}})
@@ -37,6 +39,10 @@ userRouter.post('/signup', async (req,res) => {
 userRouter.post('/signin', async (req,res) => {
 
     const {email,password} = req.body;
+
+    if(!email || !password)
+        return res.status(400).json({error: "invalid fields"})
+        
     try {
         const exists = await user.findOne({where: {email: email}})
         if(!exists)
