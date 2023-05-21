@@ -29,7 +29,7 @@ bucketRouter.post('/', async(req,res) => {
         
         const newBucket = await bucket.create({name: name, size: BUCKET_SIZE})
         
-        const bucket_key_payload = {bucket_id: newBucket.id}
+        const bucket_key_payload = {bucket_id: newBucket.id, bucket_name: name}
         
         const key = jwt.sign(bucket_key_payload, process.env.JWT_BUCKET_KEY_SECRET)
         const bucketDescriptorName = `${newBucket.id}_${name}`
