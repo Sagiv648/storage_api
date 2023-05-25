@@ -74,8 +74,9 @@ filesRouter.put('/action', async (req,res) => {
 filesRouter.post('/upload', upload.single('file'), async (req,res) => {
     const {start,size,path,name} = req.body;
     const {bucket_key,id} = req.data;
+    console.log(req.file);
     const {buffer} = req.file;
-
+    //return res.status(500).json({test:"1"})
     if(isNaN(start) || isNaN(size))
         return res.status(400).json({error: "invalid fields"})
     const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`

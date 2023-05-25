@@ -8,22 +8,33 @@ import filesRouter from "./Controllers/files.js";
 import crypto from 'crypto-js'
 import directoryRouter from "./Controllers/directory.js";
 import requestip from 'request-ip'
+import application from "./Models/application.js";
+import cors from 'cors'
 app.use(json())
 app.use(urlencoded({extended: false}))
-app.use((req,res,next) => {
+app.use(cors())
+app.use(async (req,res,next) => {
     
-    if(req.headers.application && req.headers.application == process.env.MOBILE_ACCESS_KEY)
-        next()
-    else
+    if(!req.headers.application)
+        return res.status(403).json({error: "invalid app"})
+    
+   
+    const key = req.headers.application
+    const applicationRecord = await application.findOne({where: {key: key}})
+    if(!applicationRecord)
         return res.status(403).json({error: "invalid key"})
+    next()
+    
+        
+    
+       
 })
-app.use(requestip.mw({}))
+//app.use(requestip.mw({}))
 
 
 
 app.get('/', async (req,res,next) => {
-    console.log(req.clientIp);
-    console.log(crypto.SHA256("347fh376fh347hf763hgdf73hd").toString());
+    
 
     return res.status(200).json({hello: "hello"})
 })
