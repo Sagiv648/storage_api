@@ -1,6 +1,5 @@
 import { Router } from "express";
 import user from "../Models/user.js";
-import bcryptjs from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 const userRouter = Router();
@@ -19,9 +18,9 @@ userRouter.post('/signup', async (req,res) => {
         console.log(exists);
         if(exists)
             return res.status(400).json({error: "exists"})
-        const hashed_password = await bcryptjs.hash(password,10);
+       
         
-        const newUser = await user.create({email: email, password: hashed_password})
+        const newUser = await user.create({email: email, password: password})
        
         if(!newUser)
             return res.status(500).json({error: "server error"})
@@ -47,8 +46,8 @@ userRouter.post('/signin', async (req,res) => {
         const exists = await user.findOne({where: {email: email}})
         if(!exists)
             return res.status(400).json({error: "invalid credentials"})
-        const samePassword = await bcryptjs.compare(password,exists.password)
-        if(!samePassword)
+        
+        if(exists.password != password)
             return res.status(401).json({error: "invalid credentials"})
         
             const jwtPayload = {id: exists.id}

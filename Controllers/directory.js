@@ -43,14 +43,22 @@ directoryRouter.put('/', (req,res) => {
     
 })
 
-//TODO: remove directory - will require deeper testing
+
 directoryRouter.delete('/', async (req,res) => {
     
     const {bucket_key,id} = req.data;
-    
+    const {path} = req.query;
+    if(!path)
+        return res.status(400).json({error: "invalid fields"})
     const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
+    console.log(path);
+    if(!fs.existsSync(`${relativeRoot}/${path}/`))
+    {
+        console.log(`${relativeRoot}/${bucket_key}/${path}`);
+        return res.status(400).json({error: "invalid path"})
+    }
+        
     
-    const {path} = req.body;
     try {
         const bucketRecord = await bucket.findOne({where: {key: bucket_key}})
         const allFilesByPath = await files.findAll({where: {path: path, bucket_id: bucketRecord.id}})
@@ -61,13 +69,13 @@ directoryRouter.delete('/', async (req,res) => {
         await files.destroy({where: {path: path, bucket_id: bucketRecord.id}})
 
         fs.rmSync(`${relativeRoot}/${path}`, {recursive: true})
-
+        return res.status(200).json({path: path,files_deleted: allFilesByPath})
     } catch (error) {
-        
+        throw error
         return res.status(500).json({error: "server error"})
     }
     
-    return res.status(200).json({deleted: "path"})
+   
 })
 
 export default directoryRouter

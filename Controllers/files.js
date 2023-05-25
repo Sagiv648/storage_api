@@ -11,9 +11,11 @@ dotenv.config()
 
 const filesRouter = Router();
 
+const copyFile = async (old_path,new_path, name) => {
+
+}
 
 
-//TODO: Implement action route, op=copy? copy file, no delete | op=move? copy file, yes delete
 filesRouter.put('/action', async (req,res) => {
     const {bucket_key,id} = req.data;
     const {old_path,new_path} = req.query;
@@ -21,12 +23,43 @@ filesRouter.put('/action', async (req,res) => {
     const {op} = req.query;
     if(!old_path || !new_path)
         return res.status(400).json({error: "invalid fields"})
+
+    if(op !== "cp" && op !== "mv")
+        return res.status(400).json({error: "invalid action"})
+
+    const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
+
+    if(!fs.existsSync(`${relativeRoot}/${new_path}`))
+        return res.status(400).json({error: "invalid new path"})
     
     try {
+        const bucketRecord = await bucket.findOne({where: {key: bucket_key}})
+        const fileRecordExists = await files.findAll({where: {bucket_id: bucketRecord.id,path: new_path,name: name}})
+        if(fileRecordExists.length != 0)
+            return res.status(400).json({error: "files duplication"})
         
-        return res.status(200).json({good: "not implemented"})
+        const fileRecord = await files.findOne({where: {bucket_id: bucketRecord.id,path: old_path,name: name}})
+        
+        fs.copyFileSync(`${relativeRoot}/${old_path}/${name}`, `${relativeRoot}/${new_path}/${name}`)
+        const newDownloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}?path=${new_path}/${name}`
+        
+        if(op === 'cp')
+        {
+            const newFileRecord = await files.create({path: new_path,name: name,bucket_id: bucketRecord.id,size: fileRecord.size,download_url: newDownloadUrl})
+            await bucketRecord.update({files_count: bucketRecord.files_count+1, size: bucketRecord.size + newFileRecord.size})
+            return res.status(200).json(newFileRecord)
+        }
+        else
+        {
+            fs.rmSync(`${relativeRoot}/${old_path}/${name}`)
+            await fileRecord.update({path: new_path, download_url: newDownloadUrl})
+        }
+        
+
+
+        return res.status(200).json(fileRecord)
     } catch (error) {
-        
+        console.log(error.message);
         return res.status(500).json({error: "server error"})
     }
 })
