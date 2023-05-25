@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import user from '../Models/user.js'
 import dotenv from 'dotenv'
 import bucket from '../Models/bucket.js';
+
 dotenv.config();
 
 export const auth = async (req,res, next) => {
@@ -21,7 +22,7 @@ export const auth = async (req,res, next) => {
             
             const exists = await user.findByPk(payload.id)
             if(exists)
-            {
+            {   
                 req.data = payload;
                 next();
             }
@@ -33,25 +34,24 @@ export const auth = async (req,res, next) => {
     }
 }
 
-export const bucketKeyAuth = async (req,res,next) => {
-    const key = req.headers.bucket_auth;
+export const deriveBucketKey = async (req,res,next) => {
+   
+    const {id} = req.data
     
-    if(!key)
-        return res.status(401).json({error: "invalid bucket key"})
+    if(!id)
+        return res.status(401).json({error: "unauthorized"})
+    
+        
     
     try {
 
-        jwt.verify(key, process.env.JWT_BUCKET_KEY_SECRET, async (err,payload) => {
-            if(err)
-                return res.status(401).json({error: "invalid key"})
-                
-            const exists = await bucket.findByPk(payload.bucket_id)
-            if(!exists)
-                return res.status(401).json({error: "invalid key"})
-            req.data = {...req.data,bucket_id: payload.bucket_id}
-            next();
-            
-        })
+        const userRecord = await user.findByPk(id)
+        if(!userRecord.bucket_id)
+            return res.status(401).json({error: "unauthorized"})
+        const bucketRecord = await bucket.findByPk(userRecord.bucket_id)
+        req.data.bucket_key = bucketRecord.key;
+        next();
+
     } catch (error) {
          return res.status(500).json({error: "server error"})
     }

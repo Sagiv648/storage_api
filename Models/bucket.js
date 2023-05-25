@@ -7,23 +7,20 @@ export default db.define("buckets", {
         autoIncrement: true,
         type: sequelize.DataTypes.INTEGER,
     },
-    name: {
-        type: sequelize.DataTypes.STRING,
-        allowNull: false,   
-    },
     key: {
         type: sequelize.DataTypes.STRING,
-        defaultValue: 0,
-        allowNull: false
+        
     },
     size: {
-        type: sequelize.DataTypes.INTEGER,
-        defaultValue: 0,
-        allowNull: false
+        type: sequelize.DataTypes.BIGINT,
+        defaultValue: 0
+        
+        
     },
     files_count: {
         type: sequelize.DataTypes.INTEGER,
         defaultValue: 0,
-        allowNull: false
+        
+       
     }
 })

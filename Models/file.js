@@ -23,8 +23,13 @@ const files = db.define("files", {
         }
     },
     size: {
-        type: sequelize.DataTypes.INTEGER,
-        defaultValue: 0
+        type: sequelize.DataTypes.BIGINT,
+        defaultValue: 0,
+        
+    },
+    download_url: {
+        type: sequelize.DataTypes.STRING
     }
+    
 })
 export default files

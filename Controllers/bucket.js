@@ -6,18 +6,18 @@ import bcryptjs from 'bcryptjs'
 import fs from 'fs'
 import { BUCKET_SIZE } from "../config/storageConfig.js";
 import jwt from 'jsonwebtoken'
-import { bucketKeyAuth } from "./auth.js";
+
+import crypto from 'crypto-js'
 const bucketRouter = Router();
 dotenv.config()
 
 //Creating a bucket
 bucketRouter.post('/', async(req,res) => {
     
-    const {name} = req.body;
+    
 
     const {id} = req.data;
-    if(!name)
-        return res.status(400).json({error: "invalid fields"})
+    
 
     try {
         const userEntry = await user.findByPk(id);
@@ -27,14 +27,15 @@ bucketRouter.post('/', async(req,res) => {
             return res.status(400).json({error: "existing bucket"})
         
         
-        const newBucket = await bucket.create({name: name, size: BUCKET_SIZE})
+        const newBucket = await bucket.create()
         
-        const bucket_key_payload = {bucket_id: newBucket.id, bucket_name: name}
-        
-        const key = jwt.sign(bucket_key_payload, process.env.JWT_BUCKET_KEY_SECRET)
-        const bucketDescriptorName = `${newBucket.id}_${name}`
-        await newBucket.update({key: key})
-        fs.mkdirSync(`${process.env.BUCKETS_DIRECTORY}/${bucketDescriptorName}`)
+        const bucketKey = crypto.SHA256(newBucket.id.toString()).toString()
+        console.log(bucketKey);
+        console.log(newBucket.id.toString());
+        //const key = jwt.sign(bucket_key_payload, process.env.JWT_BUCKET_KEY_SECRET)
+       
+        await newBucket.update({key: bucketKey})
+        fs.mkdirSync(`${process.env.BUCKETS_DIRECTORY}/${bucketKey}`)
        
         await user.update({bucket_id: newBucket.id}, {where: {id: id}})
 
@@ -49,7 +50,7 @@ bucketRouter.post('/', async(req,res) => {
 
 
 //Changing of bucket options
-bucketRouter.put('/', bucketKeyAuth ,async( req,res) => {
+bucketRouter.put('/' ,async( req,res) => {
 
     const {id,bucket_id} = req.data;
    

@@ -4,139 +4,186 @@ import dotenv from 'dotenv'
 import upload from "../config/storageConfig.js";
 import files from "../Models/file.js";
 import bucket from "../Models/bucket.js";
-import { bucketKeyAuth } from "./auth.js";
+
 import jwt from 'jsonwebtoken'
+
 dotenv.config()
 
 const filesRouter = Router();
 
 
 
-//Upload example
-// app.post('/upload',upload.single("file") ,async(req,res) => {
+//TODO: Implement action route, op=copy? copy file, no delete | op=move? copy file, yes delete
+filesRouter.put('/action', async (req,res) => {
+    const {bucket_key,id} = req.data;
+    const {old_path,new_path} = req.query;
+    const {name} = req.query;
+    const {op} = req.query;
+    if(!old_path || !new_path)
+        return res.status(400).json({error: "invalid fields"})
     
-//     const {buffer} = req.file
-//     const {start,len,size,name} = req.body
-//     console.log(`${start}/${size}`);
-//     try {
-//         fs.appendFile(`${__dirname}/../${name}`, buffer, {encoding: 'utf-8'}, (err) => {
-//             if(err){
-//                throw err;
-//             }
-//             console.log("written");
-                
-            
-//         })
-//     } catch (error) {
-//         throw error;
-//     }
-//     return res.status(200).json({state: "written", progress: `${start}/${size}`})
-// })
+    try {
+        
+        return res.status(200).json({good: "not implemented"})
+    } catch (error) {
+        
+        return res.status(500).json({error: "server error"})
+    }
+})
 
 //Multipart/form-data fields:
 //1. file: [file]
-//2. bucket_path: [bucket_name(root)]/....../[no file name]
+//2. path: /....../
 //3. name: [file_name]
 //4. size: [file_size]
-//5. offset: [write_offset]
-filesRouter.post('/upload/',bucketKeyAuth ,upload.single('file') , async(req,res) => {
+//5. start: [write_offset]
 
-    const {offset,bucket_path,name,size} = req.body;
+filesRouter.post('/upload', upload.single('file'), async (req,res) => {
+    const {start,size,path,name} = req.body;
+    const {bucket_key,id} = req.data;
     const {buffer} = req.file;
-    const {bucket_id} = req.data;
 
-    if(isNaN(offset) || isNaN(size))
-        return res.status(400).json({error: 'invalid fields'})
-
+    if(isNaN(start) || isNaN(size))
+        return res.status(400).json({error: "invalid fields"})
+    const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
     try {
-        const fullStoragePath = `${process.env.BUCKETS_DIRECTORY}/${bucket_id}_${bucket_path}`
-        if(offset == 0)
+
+        if(parseInt(start) == 0)
         {
-            fs.mkdirSync(fullStoragePath, {recursive: true})
-            fs.writeFileSync(`${fullStoragePath}/${name}`, buffer)
+            if(!fs.existsSync(`${relativeRoot}/${path}`))
+                return res.status(400).json({error: "invalid path"})
+            
+            fs.writeFileSync(`${relativeRoot}/${path}/${name}`, buffer)
+            
+            
         }
         else
-        {
-            fs.appendFileSync(`${fullStoragePath}/${name}`,buffer)
-            
-            
-        }
-        // console.log(offset);
-        // console.log(req.file.size);
-        // console.log(size);
-        // console.log(offset + req.file.size);
-        if((parseInt(offset) + req.file.size) >= parseInt(size))
-        {
-            //set file mod to read only
-            fs.chmodSync(`${fullStoragePath}/${name}`, fs.constants.S_IRUSR | fs.constants.S_IWUSR)
+            fs.appendFileSync(`${relativeRoot}/${path}/${name}`, buffer)
+            //return res.status(200).json({progress: parseInt(start) + buffer.length, size: parseInt(size)})
+        
 
-            const exists = await files.findOne({where: {name: name, path: bucket_path, bucket_id: bucket_id}})
-            const buck = await bucket.findByPk(bucket_id)
+        if(parseInt(start) + buffer.length >= parseInt(size))
+        {
+
+
+
+            //Persist in db
             
+
+            const bucketRecord = await bucket.findOne({where: {key: bucket_key}})
+            const exists = await files.findOne({where: {path: path, name: name, bucket_id: bucketRecord.id}})
+            fs.chmodSync(`${relativeRoot}/${path}/${name}`, fs.constants.S_IRUSR | fs.constants.S_IWUSR)
             if(!exists)
             {
-                console.log("it doesn't exist");
-                const newFile = await files.create({name: name,path: bucket_path, bucket_id: bucket_id, size: size})
-                await buck.update({files_count: buck.files_count+1})
+                const downloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}?path=${path}/${name}`
+                const fileRecord = await files.create({name: name, path: path, size: parseInt(size), bucket_id: bucketRecord.id, download_url: downloadUrl})
+                await bucketRecord.update({files_count: bucketRecord.files_count + 1, size: (parseInt( bucketRecord.size) + parseInt( fileRecord.size))})
+                return res.status(201).json(fileRecord)
             }
             else
             {
-                console.log("it exists");
-                const oldSize = exists.size;
-                await exists.update({name: name, path: bucket_path, size: size})
-                
+                await bucketRecord.update({size: (parseInt(bucketRecord.size) - parseInt(exists.size) + parseInt(size))})
+                await exists.update({size: parseInt(size)})
                 
             }
             
-            
-            
-            return res.status(201).json({download_url: `http://localhost:5000/api/files/download/${buck.key}?path=${bucket_path}/${name}`})
+            return res.status(201).json(exists)
         }
-
-        const progress = (offset + req.file.size)/size*100;
-        return res.status(200).json({status: "write", progress: progress, size: size})
-
-
+        
+        return res.status(200).json({progress: parseInt(start) + buffer.length, size: parseInt(size)})
 
     } catch (error) {
+
         console.log(error.message);
-        throw error
+        
         return res.status(500).json({error: "server error"})
     }
-    
-
 })
-filesRouter.get('/download/:bucketkey',(req,res) => {
-    
-  const {bucketkey} = req.params;
-  const {path} = req.query;
+
+
+filesRouter.get('/download', (req,res) => {
+    const {bucket_key,id} = req.data;
+    const {path} = req.query;
+    const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
     if(!path)
         return res.status(400).json({error: "invalid fields"})
 
-  jwt.verify(bucketkey, process.env.JWT_BUCKET_KEY_SECRET, (err,payload) => {
-        if(err)
-            return res.status(401).json({error: "invalid key"})
+    try {
+        if(!fs.existsSync(`${relativeRoot}/${path}`))
+            return res.status(400).json({error: "invalid path"})
+        const fileName = path.split('/').slice(-1)
+        return res.status(200).download(`${relativeRoot}/${path}`,fileName)
+    } catch (error) {
+        
+    }
+    return res.status(200).json({test:"test"})
+})
 
-        const {bucket_id} = payload;
-        
-        try {
-            const storagePath = `${process.env.BUCKETS_DIRECTORY}/${bucket_id}_${path}`;
-            const fileExists = fs.existsSync(storagePath)
-            if(!fileExists)
-                return res.status(400).json({error: "no file"})
-    
-            const fileName = path.split('/').slice(-1)
-            return res.status(200).download(storagePath, fileName)
-        
-        } catch (error) {
-        
-            console.log(error.message);
-            return res.status(500).json({error: "server error"})
-        }
-  })
-   
-   
 
+filesRouter.put('/', async (req,res) => {
+    const {bucket_key,id} = req.data;
+    const {old_name, new_name} = req.body;
+    const {path} = req.query
+    if(!old_name || !new_name)
+        return res.status(400).json({error: "invalid fields"})
+    const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
+    try {
+        const bucketRecord = await bucket.findOne({where: {key: bucket_key}})
+        const fileRecordExists = await files.findAll({where: {bucket_id: bucketRecord.id, path: path, name: new_name}})
+        if(fileRecordExists.length != 0)
+            return res.status(400).json({error: "invalid new name"})
+        
+        const fileRecord = await files.findOne({where: {bucket_id: bucketRecord.id, path: path, name: old_name}})
+        const newDownloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}?path=${path}/${new_name}`
+        await fileRecord.update({name: new_name, download_url: newDownloadUrl})
+        fs.renameSync(`${relativeRoot}/${path}/${old_name}`, `${relativeRoot}/${path}/${new_name}`)
+
+        return res.status(200).json(fileRecord)
+
+    } catch (error) {
+        console.log(error.message);
+        return res.status(500).json({error: "server error"})
+    }
+})
+
+filesRouter.delete('/', async (req,res) => {
+
+    const {bucket_key,id} = req.data;
+    const {path}=req.query;
+    const {name} = req.query;
+    if(!path)
+        return res.status(400).json({error: "invalid fields"})
+    const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
+    try {
+        const bucketRecord = await bucket.findOne({where: {key: bucket_key}})
+        const fileRecord = await files.findOne({where: {bucket_id: bucketRecord.id, path: path, name: name}})
+        if(!fileRecord)
+            return res.status(400).json({error: "invalid file"})
+        await bucketRecord.update({size: bucketRecord.size - fileRecord.size, files_count: bucketRecord.files_count-1})
+        await fileRecord.destroy()
+        
+        fs.rmSync(`${relativeRoot}/${path}/${name}`)
+        return res.status(200).json(fileRecord)
+
+    } catch (error) {
+        
+        return res.status(500).json({error: "server error"})
+    }
+})
+
+filesRouter.get('/', async (req,res) => {
+    const {bucket_key, id} = req.data;
+
+    try {
+        const bucketRecord = await bucket.findOne({where: {key: bucket_key}})
+        const allFiles = await files.findAll({where: {bucket_id: bucketRecord.id}})
+
+        return res.status(200).json({key: bucket_key, files: allFiles})
+
+    } catch (error) {
+        
+        return res.status(500).json({error: "server error"})
+    }
 })
 
 export default filesRouter;
