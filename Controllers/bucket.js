@@ -2,12 +2,10 @@ import { Router } from "express";
 import dotenv from 'dotenv'
 import user from "../Models/user.js";
 import bucket from "../Models/bucket.js";
-import bcryptjs from 'bcryptjs'
 import fs from 'fs'
-import { BUCKET_SIZE } from "../config/storageConfig.js";
-import jwt from 'jsonwebtoken'
-
+import files from "../Models/file.js";
 import crypto from 'crypto-js'
+import { deriveBucketKey } from "./auth.js";
 const bucketRouter = Router();
 dotenv.config()
 
@@ -39,7 +37,7 @@ bucketRouter.post('/', async(req,res) => {
        
         await user.update({bucket_id: newBucket.id}, {where: {id: id}})
 
-        return res.status(201).json({newBucket})
+        return res.status(201).json({bucket: newBucket, files: []})
 
     } catch (error) {
         console.log(error.message);
@@ -85,4 +83,17 @@ bucketRouter.put('/' ,async( req,res) => {
     }
 })
 
+bucketRouter.get('/',deriveBucketKey, async (req,res) => {
+
+    const {bucket_key, id} = req.data;
+    console.log(req.data);
+    try {
+        const bucketRecord = await bucket.findOne({where: {key: bucket_key}})
+        const allFiles = await files.findAll({where: {bucket_id: bucketRecord.id}})
+        return res.status(200).json({bucket: bucketRecord, files: allFiles})
+    } catch (error) {
+        console.log(error.message);
+        return res.status(500).json({error: "server error"})
+    }
+})
 export default bucketRouter

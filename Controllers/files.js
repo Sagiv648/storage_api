@@ -84,9 +84,12 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
 
         if(parseInt(start) == 0)
         {
+            // if(!fs.existsSync(`${relativeRoot}/${path}`))
+            //     return res.status(400).json({error: "invalid path"})
             if(!fs.existsSync(`${relativeRoot}/${path}`))
-                return res.status(400).json({error: "invalid path"})
-            
+            {
+                fs.mkdirSync(`${relativeRoot}/${path}`, {recursive: true})
+            }
             fs.writeFileSync(`${relativeRoot}/${path}/${name}`, buffer)
             
             
@@ -198,21 +201,6 @@ filesRouter.delete('/', async (req,res) => {
         
         fs.rmSync(`${relativeRoot}/${path}/${name}`)
         return res.status(200).json(fileRecord)
-
-    } catch (error) {
-        
-        return res.status(500).json({error: "server error"})
-    }
-})
-
-filesRouter.get('/', async (req,res) => {
-    const {bucket_key, id} = req.data;
-
-    try {
-        const bucketRecord = await bucket.findOne({where: {key: bucket_key}})
-        const allFiles = await files.findAll({where: {bucket_id: bucketRecord.id}})
-
-        return res.status(200).json({key: bucket_key, files: allFiles})
 
     } catch (error) {
         
