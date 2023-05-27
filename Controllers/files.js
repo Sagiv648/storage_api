@@ -4,16 +4,13 @@ import dotenv from 'dotenv'
 import upload from "../config/storageConfig.js";
 import files from "../Models/file.js";
 import bucket from "../Models/bucket.js";
-
+import diskUpload from "../config/diskStorageConfig.js";
 import jwt from 'jsonwebtoken'
+import { MulterError } from "multer";
 
 dotenv.config()
 
 const filesRouter = Router();
-
-const copyFile = async (old_path,new_path, name) => {
-
-}
 
 
 filesRouter.put('/action', async (req,res) => {
@@ -71,18 +68,36 @@ filesRouter.put('/action', async (req,res) => {
 //4. size: [file_size]
 //5. start: [write_offset]
 
+
+filesRouter.post('/upload-fixed' ,async (req,res) => {
+    
+    diskUpload.single("file")(req,res, (err) => {
+        if(err instanceof Error)
+        {
+            console.log(err.message);
+            
+        }
+        
+        const result = req.result;
+        return res.status(201).json(result)
+    })
+    
+    
+
+})
+
 filesRouter.post('/upload', upload.single('file'), async (req,res) => {
     const {start,size,path,name} = req.body;
     const {bucket_key,id} = req.data;
-    console.log(req.file);
+    
     const {buffer} = req.file;
-    //return res.status(500).json({test:"1"})
+    
     if(isNaN(start) || isNaN(size))
         return res.status(400).json({error: "invalid fields"})
     const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
     try {
 
-        if(parseInt(start) == 0)
+        if(Number(start) == 0)
         {
             // if(!fs.existsSync(`${relativeRoot}/${path}`))
             //     return res.status(400).json({error: "invalid path"})
@@ -99,7 +114,7 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
             //return res.status(200).json({progress: parseInt(start) + buffer.length, size: parseInt(size)})
         
 
-        if(parseInt(start) + buffer.length >= parseInt(size))
+        if(Number(start) + buffer.length >= Number(size))
         {
 
 
@@ -113,21 +128,21 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
             if(!exists)
             {
                 const downloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}?path=${path}/${name}`
-                const fileRecord = await files.create({name: name, path: path, size: parseInt(size), bucket_id: bucketRecord.id, download_url: downloadUrl})
-                await bucketRecord.update({files_count: bucketRecord.files_count + 1, size: (parseInt( bucketRecord.size) + parseInt( fileRecord.size))})
+                const fileRecord = await files.create({name: name, path: path, size: Number(size), bucket_id: bucketRecord.id, download_url: downloadUrl})
+                await bucketRecord.update({files_count: bucketRecord.files_count + 1, size: (Number( bucketRecord.size) + Number( fileRecord.size))})
                 return res.status(201).json(fileRecord)
             }
             else
             {
-                await bucketRecord.update({size: (parseInt(bucketRecord.size) - parseInt(exists.size) + parseInt(size))})
-                await exists.update({size: parseInt(size)})
+                await bucketRecord.update({size: (Number(bucketRecord.size) - Number(exists.size) + Number(size))})
+                await exists.update({size: Number(size)})
                 
             }
             
             return res.status(201).json(exists)
         }
         
-        return res.status(200).json({progress: parseInt(start) + buffer.length, size: parseInt(size)})
+        return res.status(200).json({progress: Number(start) + buffer.length, size: Number(size)})
 
     } catch (error) {
 

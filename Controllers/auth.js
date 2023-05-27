@@ -6,7 +6,7 @@ import bucket from '../Models/bucket.js';
 dotenv.config();
 
 export const auth = async (req,res, next) => {
-
+    console.log(req.headers);
     if(!req.headers.authorization || !req.headers.authorization.startsWith("Bearer "))
         return res.status(401).json({error: "unauthorized"})
     const authorization = req.headers.authorization.split(' ')
@@ -37,7 +37,7 @@ export const auth = async (req,res, next) => {
 export const deriveBucketKey = async (req,res,next) => {
    
     const {id} = req.data
-    
+    console.log(req.data);
     if(!id)
         return res.status(401).json({error: "unauthorized"})
     
