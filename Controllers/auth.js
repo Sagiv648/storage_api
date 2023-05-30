@@ -2,6 +2,9 @@ import jwt from 'jsonwebtoken'
 import user from '../Models/user.js'
 import dotenv from 'dotenv'
 import bucket from '../Models/bucket.js';
+import files from '../Models/file.js';
+
+import application from '../Models/application.js';
 
 dotenv.config();
 
@@ -36,25 +39,49 @@ export const auth = async (req,res, next) => {
 
 export const deriveBucketKey = async (req,res,next) => {
    
-    const {id} = req.data
-    console.log(req.data);
-    if(!id)
-        return res.status(401).json({error: "unauthorized"})
+    const key = req.headers.application
     
-        
+    console.log(key);
     
     try {
 
-        const userRecord = await user.findByPk(id)
-        if(!userRecord.bucket_id)
-            return res.status(401).json({error: "unauthorized"})
-        const bucketRecord = await bucket.findByPk(userRecord.bucket_id)
-        req.data.bucket_key = bucketRecord.key;
+        const applicationRecord = await application.findOne({where: {key: key}})
+
+
+        
+        req.data.bucket_key = applicationRecord.bucket_key;
         next();
 
     } catch (error) {
          return res.status(500).json({error: "server error"})
     }
     
+}
+
+export const authDownloadToken = async (req,res,next) => {
+
+    const {urlToken} = req.params;
+    console.log(urlToken);
+    if(!urlToken)
+        return res.status(400).json({error: "invalid token"})
+
+    jwt.verify(urlToken, process.env.DOWNLOAD_SIGN_KEY, async (err, payload) => {
+        if(err)
+            return res.status(401).json({error: "invalid token"})
+        try {
+            const bucketRecord = await bucket.findOne({key: payload.key})
+            if(!bucketRecord)
+                return res.status(401).json({error: "invalid bucket key"})
+            const validFile = await files.findOne({bucket_id: bucketRecord.id, path: payload.path, name: payload.name})
+            if(!validFile)
+                return res.status(401).json({error: "invalid file"})
+
+
+            req.data = payload;
+            next();
+        } catch (error) {
+            return res.status(500).json({error: "server error"})
+        }
+    })
 }
 

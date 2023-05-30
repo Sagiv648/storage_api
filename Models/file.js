@@ -28,7 +28,7 @@ const files = db.define("files", {
         
     },
     download_url: {
-        type: sequelize.DataTypes.STRING
+        type: sequelize.DataTypes.TEXT,
     }
     
 })

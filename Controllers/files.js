@@ -18,8 +18,7 @@ filesRouter.put('/action', async (req,res) => {
     const {old_path,new_path} = req.query;
     const {name} = req.query;
     const {op} = req.query;
-    if(!old_path || !new_path)
-        return res.status(400).json({error: "invalid fields"})
+    
 
     if(op !== "cp" && op !== "mv")
         return res.status(400).json({error: "invalid action"})
@@ -38,7 +37,9 @@ filesRouter.put('/action', async (req,res) => {
         const fileRecord = await files.findOne({where: {bucket_id: bucketRecord.id,path: old_path,name: name}})
         
         fs.copyFileSync(`${relativeRoot}/${old_path}/${name}`, `${relativeRoot}/${new_path}/${name}`)
-        const newDownloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}?path=${new_path}/${name}`
+        const urlToken = jwt.sign({key: bucket_key,path: new_path, name: name},process.env.DOWNLOAD_SIGN_KEY)
+               
+        const newDownloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}/${urlToken}`
         
         if(op === 'cp')
         {
@@ -57,6 +58,7 @@ filesRouter.put('/action', async (req,res) => {
         return res.status(200).json(fileRecord)
     } catch (error) {
         console.log(error.message);
+        
         return res.status(500).json({error: "server error"})
     }
 })
@@ -127,7 +129,9 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
             fs.chmodSync(`${relativeRoot}/${path}/${name}`, fs.constants.S_IRUSR | fs.constants.S_IWUSR)
             if(!exists)
             {
-                const downloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}?path=${path}/${name}`
+                const urlToken = jwt.sign({key: bucket_key,path: path, name: name},process.env.DOWNLOAD_SIGN_KEY)
+                console.log(urlToken);
+                const downloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}/${urlToken}`
                 const fileRecord = await files.create({name: name, path: path, size: Number(size), bucket_id: bucketRecord.id, download_url: downloadUrl})
                 await bucketRecord.update({files_count: bucketRecord.files_count + 1, size: (Number( bucketRecord.size) + Number( fileRecord.size))})
                 return res.status(201).json(fileRecord)
@@ -153,23 +157,7 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
 })
 
 
-filesRouter.get('/download', (req,res) => {
-    const {bucket_key,id} = req.data;
-    const {path} = req.query;
-    const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
-    if(!path)
-        return res.status(400).json({error: "invalid fields"})
 
-    try {
-        if(!fs.existsSync(`${relativeRoot}/${path}`))
-            return res.status(400).json({error: "invalid path"})
-        const fileName = path.split('/').slice(-1)
-        return res.status(200).download(`${relativeRoot}/${path}`,fileName)
-    } catch (error) {
-        
-    }
-    return res.status(200).json({test:"test"})
-})
 
 
 filesRouter.put('/', async (req,res) => {
@@ -186,7 +174,10 @@ filesRouter.put('/', async (req,res) => {
             return res.status(400).json({error: "invalid new name"})
         
         const fileRecord = await files.findOne({where: {bucket_id: bucketRecord.id, path: path, name: old_name}})
-        const newDownloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}?path=${path}/${new_name}`
+        
+        const urlToken = jwt.sign({key: bucket_key,path: path, name: name},process.env.DOWNLOAD_SIGN_KEY)
+               
+        const newDownloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}/${urlToken}`
         await fileRecord.update({name: new_name, download_url: newDownloadUrl})
         fs.renameSync(`${relativeRoot}/${path}/${old_name}`, `${relativeRoot}/${path}/${new_name}`)
 

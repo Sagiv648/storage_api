@@ -16,11 +16,5 @@ export default db.define("users", {
         allowNull: false,
         type: DataTypes.STRING
     },
-    bucket_id: {
-        type: DataTypes.INTEGER,
-        references: {
-            model: "buckets",
-            key: "id"
-        }
-    }
+    
 })

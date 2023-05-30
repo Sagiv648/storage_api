@@ -11,6 +11,16 @@ const application = db.define("applications", {
         type: sequelize.DataTypes.STRING,
         allowNull: false
     },
+    user: {
+        type: sequelize.DataTypes.INTEGER,
+        references: {
+            model: 'users',
+            key: 'id'
+        }
+    },
+    bucket_key: {
+        type: sequelize.DataTypes.STRING
+    },
     key: {
         type: sequelize.DataTypes.STRING
     }
