@@ -9,7 +9,7 @@ import application from '../Models/application.js';
 dotenv.config();
 
 export const auth = async (req,res, next) => {
-    console.log(req.headers);
+    
     if(!req.headers.authorization || !req.headers.authorization.startsWith("Bearer "))
         return res.status(401).json({error: "unauthorized"})
     const authorization = req.headers.authorization.split(' ')
@@ -56,6 +56,37 @@ export const deriveBucketKey = async (req,res,next) => {
          return res.status(500).json({error: "server error"})
     }
     
+}
+
+
+export const authUploadKey = async (req,res,next) => {
+
+    if(!req.headers.authorization || !req.headers.authorization.startsWith("Bearer "))
+        return res.status(401).json({error: "unauthorized"})
+
+    const authorization = req.headers.authorization.split(' ')
+
+    if(authorization.length != 2)
+        return res.status(401).json({error: "unauthorized"})
+    const appHeader = req.headers.application;
+    try {
+        const app = await application.findOne({where: {key: appHeader}})
+        if(!app)
+            return res.status(401).json({error: "unauthorized"})
+
+        jwt.verify(authorization[1], app.auth_key_secret,(err,payload) => {
+            if(err)
+                return res.status(401).json({error: "unauthorized"})
+                
+            if(payload.app !== appHeader)
+                return res.status(403).json({error: "forbidden"})
+            req.data = payload;
+            next()
+        } )
+    } catch (error) {
+
+        return res.status(500).json({error: "server error"})
+    }
 }
 
 export const authDownloadToken = async (req,res,next) => {

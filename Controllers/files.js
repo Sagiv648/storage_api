@@ -36,6 +36,10 @@ filesRouter.put('/action', async (req,res) => {
         
         const fileRecord = await files.findOne({where: {bucket_id: bucketRecord.id,path: old_path,name: name}})
         
+        if(op === 'cp' && BigInt(fileRecordExists.size) + BigInt(bucketRecord.size) >= BigInt(bucketRecord.limit))
+            return res.status(400).json({error: "not enough bucket space"})
+        
+
         fs.copyFileSync(`${relativeRoot}/${old_path}/${name}`, `${relativeRoot}/${new_path}/${name}`)
         const urlToken = jwt.sign({key: bucket_key,path: new_path, name: name},process.env.DOWNLOAD_SIGN_KEY)
                
@@ -43,8 +47,8 @@ filesRouter.put('/action', async (req,res) => {
         
         if(op === 'cp')
         {
-            const newFileRecord = await files.create({path: new_path,name: name,bucket_id: bucketRecord.id,size: fileRecord.size,download_url: newDownloadUrl})
-            await bucketRecord.update({files_count: bucketRecord.files_count+1, size: bucketRecord.size + newFileRecord.size})
+            const newFileRecord = await files.create({path: new_path,name: name,bucket_id: bucketRecord.id,size: BigInt(fileRecord.size),download_url: newDownloadUrl})
+            await bucketRecord.update({files_count: bucketRecord.files_count+1, size: BigInt(bucketRecord.size) + BigInt(newFileRecord.size)})
             return res.status(200).json(newFileRecord)
         }
         else
@@ -99,8 +103,16 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
     const relativeRoot = `${process.env.BUCKETS_DIRECTORY}/${bucket_key}`
     try {
 
-        if(Number(start) == 0)
+
+
+
+        if(BigInt(start) == 0)
         {
+            
+            const bucketRecordSize = await bucket.findOne({where: {key: bucket_key}})
+            if(BigInt(bucketRecordSize.size) + BigInt(size) >= BigInt(bucketRecordSize.limit))
+                return res.status(400).json({error: "not enough bucket space"})
+
             // if(!fs.existsSync(`${relativeRoot}/${path}`))
             //     return res.status(400).json({error: "invalid path"})
             if(!fs.existsSync(`${relativeRoot}/${path}`))
@@ -116,7 +128,7 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
             //return res.status(200).json({progress: parseInt(start) + buffer.length, size: parseInt(size)})
         
 
-        if(Number(start) + buffer.length >= Number(size))
+        if(BigInt(start) + buffer.length >= BigInt(size))
         {
 
 
@@ -132,21 +144,21 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
                 const urlToken = jwt.sign({key: bucket_key,path: path, name: name},process.env.DOWNLOAD_SIGN_KEY)
                 console.log(urlToken);
                 const downloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}/${urlToken}`
-                const fileRecord = await files.create({name: name, path: path, size: Number(size), bucket_id: bucketRecord.id, download_url: downloadUrl})
-                await bucketRecord.update({files_count: bucketRecord.files_count + 1, size: (Number( bucketRecord.size) + Number( fileRecord.size))})
+                const fileRecord = await files.create({name: name, path: path, size: BigInt(size), bucket_id: bucketRecord.id, download_url: downloadUrl})
+                await bucketRecord.update({files_count: bucketRecord.files_count + 1, size: (BigInt( bucketRecord.size) + BigInt( fileRecord.size))})
                 return res.status(201).json(fileRecord)
             }
             else
             {
-                await bucketRecord.update({size: (Number(bucketRecord.size) - Number(exists.size) + Number(size))})
-                await exists.update({size: Number(size)})
+                await bucketRecord.update({size: (BigInt(bucketRecord.size) - BigInt(exists.size) + BigInt(size))})
+                await exists.update({size: BigInt(size)})
                 
             }
             
             return res.status(201).json(exists)
         }
         
-        return res.status(200).json({progress: Number(start) + buffer.length, size: Number(size)})
+        return res.status(200).json({progress: BigInt(start) + buffer.length, size: BigInt(size)})
 
     } catch (error) {
 

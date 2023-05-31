@@ -18,10 +18,14 @@ const application = db.define("applications", {
             key: 'id'
         }
     },
+    
     bucket_key: {
         type: sequelize.DataTypes.STRING
     },
     key: {
+        type: sequelize.DataTypes.STRING
+    },
+    auth_key_secret: {
         type: sequelize.DataTypes.STRING
     }
     

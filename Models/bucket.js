@@ -1,5 +1,5 @@
 import db from "../config/dbConfig.js";
-import sequelize from 'sequelize'
+import sequelize, { NUMBER } from 'sequelize'
 
 export default db.define("buckets", {
     id: {
@@ -16,6 +16,10 @@ export default db.define("buckets", {
         defaultValue: 0
         
         
+    },
+    limit : {
+        type: sequelize.DataTypes.BIGINT,
+        defaultValue: BigInt(process.env.LIMIT)
     },
     files_count: {
         type: sequelize.DataTypes.INTEGER,

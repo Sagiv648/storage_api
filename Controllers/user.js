@@ -80,7 +80,7 @@ userRouter.post('/application', auth ,async (req,res) => {
             return res.status(400).json({error: "application limit excceeded"})
         
         const newApplication = await application.create({name: name, user: id})
-
+        const auth_key_secret = crypto.SHA256(`${newApplication.id}_${newApplication.name}`).toString()
         const newBucket = await bucket.create()
     
         const bucketKey = crypto.SHA256(newBucket.id.toString()).toString()
@@ -91,13 +91,11 @@ userRouter.post('/application', auth ,async (req,res) => {
     
         const applicationKey = crypto.SHA256(newApplication.id).toString();
        
-        await newApplication.update({key: applicationKey, bucket_key: bucketKey})
+        await newApplication.update({key: applicationKey, bucket_key: bucketKey, auth_key_secret: auth_key_secret})
 
         return res.status(201).json({application: {
             name: newApplication.name,
             key: newApplication.key,
-            bucket_key: newApplication.bucket_key
-
         }})
 
     } catch (error) {

@@ -3,14 +3,13 @@ import {json, urlencoded} from 'express'
 import { __dirname } from "./config/storageConfig.js";
 import userRouter from "./Controllers/user.js";
 import bucketRouter from "./Controllers/bucket.js";
-import { auth, authDownloadToken, deriveBucketKey } from "./Controllers/auth.js";
+import { auth, authDownloadToken, authUploadKey, deriveBucketKey } from "./Controllers/auth.js";
 import filesRouter from "./Controllers/files.js";
-import crypto from 'crypto-js'
 import directoryRouter from "./Controllers/directory.js";
-import requestip from 'request-ip'
 import application from "./Models/application.js";
 import cors from 'cors'
 import fs from 'fs'
+import jwt from 'jsonwebtoken'
 app.use(json())
 app.use(urlencoded({extended: false}))
 app.use(cors())
@@ -56,18 +55,24 @@ app.use(async (req,res,next) => {
 
 
 
-app.get('/', async (req,res,next) => {
+app.get('/storage', async (req,res) => {
     
+    try {
+        const app = req.headers.application;
+        const applicationRecord = await application.findOne({where: {key: app}})
+        if(!applicationRecord)
+            return res.status(500).json({error: "server error"})
+        const uploadToken = jwt.sign({id: applicationRecord.id,app: app, bucket_key: applicationRecord.bucket_key}, applicationRecord.auth_key_secret)
 
-    return res.status(200).json({hello: "hello"})
-})
+        return res.status(201).json({upload_token: uploadToken})
+    } catch (error) {
+        return res.status(500).json({error: "server error"})
+    }
 
-app.get('/x', (req,res) => {
     
-    return res.status(200).json({hello: "from self"})
 })
 
 
 app.use('/api/bucket',auth,bucketRouter)
-app.use('/api/files',auth,deriveBucketKey ,filesRouter)
-app.use('/api/directory', auth, deriveBucketKey, directoryRouter)
+app.use('/api/files',authUploadKey ,filesRouter)
+app.use('/api/directory', authUploadKey, directoryRouter)
