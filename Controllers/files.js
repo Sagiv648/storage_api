@@ -128,7 +128,7 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
             //return res.status(200).json({progress: parseInt(start) + buffer.length, size: parseInt(size)})
         
 
-        if(BigInt(start) + buffer.length >= BigInt(size))
+        if(BigInt(start) + BigInt( buffer.length) >= BigInt(size))
         {
 
 
@@ -146,7 +146,10 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
                 const downloadUrl = `${process.env.DOWNLOAD_URL_BASE_URL}/${urlToken}`
                 const fileRecord = await files.create({name: name, path: path, size: BigInt(size), bucket_id: bucketRecord.id, download_url: downloadUrl})
                 await bucketRecord.update({files_count: bucketRecord.files_count + 1, size: (BigInt( bucketRecord.size) + BigInt( fileRecord.size))})
-                return res.status(201).json(fileRecord)
+                return res.status(201).json({id: fileRecord.id, 
+                                            name: fileRecord.name,
+                                            path: fileRecord.path,
+                                            download_url: fileRecord.download_url})
             }
             else
             {
@@ -155,15 +158,18 @@ filesRouter.post('/upload', upload.single('file'), async (req,res) => {
                 
             }
             
-            return res.status(201).json(exists)
+            return res.status(201).json({id: exists.id, 
+                                        name: exists.name,
+                                        path: exists.path,
+                                        download_url: exists.download_url})
         }
         
-        return res.status(200).json({progress: BigInt(start) + buffer.length, size: BigInt(size)})
+        return res.status(200).json({progress: (BigInt(start) + BigInt(buffer.length)).toString(), size: BigInt(size).toString()})
 
     } catch (error) {
 
         console.log(error.message);
-        
+        throw error
         return res.status(500).json({error: "server error"})
     }
 })

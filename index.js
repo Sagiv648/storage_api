@@ -55,7 +55,7 @@ app.use(async (req,res,next) => {
 
 
 
-app.get('/storage', async (req,res) => {
+app.get('/api/storage', async (req,res) => {
     
     try {
         const app = req.headers.application;
